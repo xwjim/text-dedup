@@ -34,6 +34,11 @@ def parse_argument(sys_argv):
         default=None,
         help=textwrap.dedent("output dataset path, writes to stdout by default")
     )
+    parser.add_argument(
+        "--language", type=str,
+        default="chinese",
+        help=textwrap.dedent("output dataset path, writes to stdout by default")
+    )
 
     # Parses from commandline
     args = parser.parse_args(sys_argv[1:])
@@ -42,16 +47,38 @@ def parse_argument(sys_argv):
 
 if __name__ == "__main__":
     args = parse_argument(sys.argv)
+    with open("data_preprocess/prompt_template.json","r") as file:
+        prompt_template = json.load(file)
     if args.option == "lm2hf":
         ds = load_dataset('json', data_files=args.dataset_path, field="instances",split="train",
                 use_auth_token=None,)
         ds.save_to_disk(args.output_path)
     else:
         data_dict = load_from_disk(args.dataset_path)
-        out = {}
-        out["type"] = "text2text"
-        out["instances"] = []
+        out_dataset = {}
+        out_dataset["type"] = "text2text"
+        out_dataset["instances"] = []
         for item in data_dict:
-            out["instances"].append({"instruction":item["instruction"],"input":item["input"],"output":item["output"]})
+            instruction_key = "instruction"
+            if "prompt" in item.keys():
+                instruction_key = "prompt"
+            if "context" in item.keys():
+                context_key = "context"
+            elif "reformulations" in item.keys():
+                instruction_key = "instruction_with_input"
+                item = item["instances"][0]
+                context_key = "context"
+            else:
+                context_key = "input"
+            if context_key in item.keys() and item[context_key] != "":
+                instruction = prompt_template[args.language+"_prompt_input"].format(input=item[context_key],instruction=item[instruction_key])
+            else:
+                instruction = prompt_template[args.language+"_prompt_no_input"].format(instruction=item[instruction_key])
+            if "response" in item.keys():
+                output = item["response"]
+            else:
+                output = item["output"]
+            out_dataset["instances"].append({"instruction":instruction,"input":"","output":output})
+        print(len(out_dataset["instances"]))
         with open(args.output_path, "w") as fout:
-            json.dump(out, fout, indent=4, ensure_ascii=False)
+            json.dump(out_dataset, fout, indent=4, ensure_ascii=False)
