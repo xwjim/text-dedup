@@ -1,10 +1,11 @@
 #!/bin/bash
 
 python -m text_dedup.minhash \
-  --path "Muennighoff/natural-instructions" \
+  --path "dataset/lawer/law_instruction.arrow" \
   --name "gl" \
   --split "train" \
-  --cache_dir "./cache" \
-  --output "output/minhash/natural-instructions_dedup" \
-  --column "inputs" \
+  --cache_dir "./caches" \
+  --output "output/minhash/lawer_dedup" \
+  --column "input" \
+  --local \
   --batch_size 10000

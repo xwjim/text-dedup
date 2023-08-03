@@ -39,9 +39,9 @@ def parse_argument(sys_argv):
         help=textwrap.dedent("output dataset path, writes to stdout by default")
     )
     parser.add_argument(
-        "--prompt_structure", type=str,
-        default="{input}",
-        help=textwrap.dedent("prompt structure to augment input")
+        "--language", type=str,
+        default="chinese",
+        help=textwrap.dedent("the language of the data")
     )
 
     # Parses from commandline
@@ -63,13 +63,24 @@ def main():
             "only support text2text prompt augmentation"
         )
 
-    data_dict["instances"] = [
-        {
-            "input": args.prompt_structure.format(input=instance["input"]),
-            "output": instance["output"],
-        }
-        for instance in data_dict["instances"]
-    ]
+    with open("data_preprocess/prompt_template.json","r") as file:
+        prompt_template = json.load(file)
+    format_data = []
+    for instance in data_dict["instances"]:
+        if instance["input"] == "":
+            prompt_structure = prompt_template[args.language+"_prompt_no_input"]
+            idata = prompt_structure.format(instruction=instance["instruction"])
+        else:
+            prompt_structure = prompt_template[args.language+"_prompt_input"]
+            idata = prompt_structure.format(instruction=instance["instruction"],input=instance["input"])
+        format_data.append(
+            {
+                "instruction": idata,
+                "input": "",
+                "output": instance["output"],
+            }
+        )
+    data_dict["instances"] = format_data
     if args.output_path is not None:
         with open(args.output_path, "w") as fout:
             json.dump(data_dict, fout, indent=4, ensure_ascii=False)
